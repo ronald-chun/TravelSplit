@@ -1,0 +1,85 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+// 旅行
+model Trip {
+  id                String    @id @default(cuid())
+  name              String
+  pin               String    @unique // 6位PIN碼，用於分享旅程
+  startDate         String
+  endDate           String
+  currency          String    @default("HKD")
+  enabledCurrencies String?   // JSON string array
+  customRates       String?   // JSON object
+  ratesLastFetched  String?
+  currentTrip       Boolean   @default(false) // 是否為當前選中的旅行
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  members   Member[]
+  expenses  Expense[]
+}
+
+// 成員
+model Member {
+  id        String   @id @default(cuid())
+  name      String
+  avatar    String?
+  color     String
+  tripId    String
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  paidExpenses    Expense[]         @relation("PaidExpenses")
+  participations  ExpenseParticipant[]
+
+  @@index([tripId])
+}
+
+// 費用
+model Expense {
+  id                   String   @id @default(cuid())
+  description          String
+  amount               Float
+  currency             String
+  amountInBaseCurrency Float
+  date                 String
+  category             String
+  splitType            String   @default("equal")
+  customSplits         String?  // JSON object
+  tripId               String
+  trip                 Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  payerId              String
+  payer                Member   @relation("PaidExpenses", fields: [payerId], references: [id], onDelete: Cascade)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  participants ExpenseParticipant[]
+
+  @@index([tripId])
+  @@index([payerId])
+}
+
+// 費用參與者（多對多關係）
+model ExpenseParticipant {
+  id         String   @id @default(cuid())
+  expenseId  String
+  expense    Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  memberId   String
+  member     Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([expenseId, memberId])
+  @@index([expenseId])
+  @@index([memberId])
+}
