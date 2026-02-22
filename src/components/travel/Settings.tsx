@@ -145,7 +145,7 @@ export function Settings({ onCreateTrip }: SettingsProps) {
 
   // 分享 PIN 碼
   const handleSharePin = () => {
-    const shareText = `來加入我的旅行「${currentTrip.name}」！\n\nPIN 碼: ${currentTrip.pin}\n\n在 TravelSplit 輸入此 PIN 碼即可加入。`;
+    const shareText = `來加入我的旅行「${currentTrip.name}」！\nPIN 碼: ${currentTrip.pin}\n在 TravelSplit 輸入此 PIN 碼即可加入。 \nhttps://travel-split-pi.vercel.app/`;
     
     navigator.clipboard.writeText(shareText)
       .then(() => {
