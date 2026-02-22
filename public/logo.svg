@@ -1,29 +1,46 @@
-<?xml version="1.0" encoding="utf-8"?>
-<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-	 viewBox="0 0 30 30" style="enable-background:new 0 0 30 30;" xml:space="preserve">
-<defs>
-  <style type="text/css">
-    .st194{fill:#2D2D2D;stroke:#FFFFFF;stroke-width:0.6317;stroke-miterlimit:10;}
-    .st23{fill:#FFFFFF;}
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="url(#gradient1)"/>
 
-    .z-breathe {
-      animation: breathe 2.5s ease-in-out infinite;
-    }
+  <!-- Gradient definition -->
+  <defs>
+    <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0284c7;stop-opacity:1" />
+    </linearGradient>
+  </defs>
 
-    @keyframes breathe {
-      0%, 100% { opacity: 0.7; }
-      50% { opacity: 1; }
-    }
-  </style>
-</defs>
-
-<g>
-  <path class="st194" d="M24.51,28.51H5.49c-2.21,0-4-1.79-4-4V5.49c0-2.21,1.79-4,4-4h19.03c2.21,0,4,1.79,4,4v19.03
-    C28.51,26.72,26.72,28.51,24.51,28.51z"/>
-  <g class="z-breathe">
-    <path class="st23" d="M15.47,7.1l-1.3,1.85c-0.2,0.29-0.54,0.47-0.9,0.47h-7.1V7.09C6.16,7.1,15.47,7.1,15.47,7.1z"/>
-    <polygon class="st23" points="24.3,7.1 13.14,22.91 5.7,22.91 16.86,7.1"/>
-    <path class="st23" d="M14.53,22.91l1.31-1.86c0.2-0.29,0.54-0.47,0.9-0.47h7.09v2.33H14.53z"/>
+  <!-- Airplane icon - more recognizable shape -->
+  <g transform="translate(256, 180)">
+    <!-- Main body -->
+    <ellipse cx="0" cy="0" rx="18" ry="70" fill="#ffffff"/>
+    <!-- Wings -->
+    <path d="M-70 10 Q-60 0 -20 0 L20 0 Q60 0 70 10 L70 20 Q60 15 20 15 L-20 15 Q-60 15 -70 20 Z" fill="#ffffff"/>
+    <!-- Tail -->
+    <path d="M-25 55 L0 45 L25 55 L25 65 L0 60 L-25 65 Z" fill="#ffffff"/>
+    <!-- Nose -->
+    <ellipse cx="0" cy="-70" rx="12" ry="20" fill="#ffffff"/>
   </g>
-</g>
+
+  <!-- Split arrows -->
+  <g stroke="#ffffff" stroke-width="6" stroke-linecap="round" fill="none">
+    <path d="M180 340 L160 380" />
+    <path d="M160 380 L145 365 M160 380 L175 375" stroke-linejoin="round"/>
+    
+    <path d="M256 350 L256 395" />
+    <path d="M256 395 L241 380 M256 395 L271 380" stroke-linejoin="round"/>
+    
+    <path d="M332 340 L352 380" />
+    <path d="M352 380 L337 375 M352 380 L367 365" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Dollar coins at bottom -->
+  <circle cx="140" cy="420" r="30" fill="#ffffff" opacity="0.95"/>
+  <text x="140" y="428" font-family="Arial, sans-serif" font-size="26" font-weight="bold" fill="#0ea5e9" text-anchor="middle">$</text>
+
+  <circle cx="256" cy="440" r="30" fill="#ffffff" opacity="0.95"/>
+  <text x="256" y="448" font-family="Arial, sans-serif" font-size="26" font-weight="bold" fill="#0ea5e9" text-anchor="middle">$</text>
+
+  <circle cx="372" cy="420" r="30" fill="#ffffff" opacity="0.95"/>
+  <text x="372" y="428" font-family="Arial, sans-serif" font-size="26" font-weight="bold" fill="#0ea5e9" text-anchor="middle">$</text>
 </svg>

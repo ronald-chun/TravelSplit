@@ -14,24 +14,24 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Z.ai Code Scaffold - AI-Powered Development",
-  description: "Modern Next.js scaffold optimized for AI-powered development with Z.ai. Built with TypeScript, Tailwind CSS, and shadcn/ui.",
-  keywords: ["Z.ai", "Next.js", "TypeScript", "Tailwind CSS", "shadcn/ui", "AI development", "React"],
-  authors: [{ name: "Z.ai Team" }],
+  title: "TravelSplit - 旅行費用分攤追蹤器",
+  description: "記錄旅行開銷，輕鬆結算分攤。TravelSplit 幫你輕鬆管理旅行費用，與朋友公平分帳。",
+  keywords: ["旅行", "費用分攤", "記帳", "旅行開銷", "分帳", "TravelSplit", "trip", "expense", "split"],
+  authors: [{ name: "TravelSplit Team" }],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/logo.svg",
   },
   openGraph: {
-    title: "Z.ai Code Scaffold",
-    description: "AI-powered development with modern React stack",
-    url: "https://chat.z.ai",
-    siteName: "Z.ai",
+    title: "TravelSplit - 旅行費用分攤追蹤器",
+    description: "記錄旅行開銷，輕鬆結算分攤",
+    url: "https://travel-split-pi.vercel.app/",
+    siteName: "TravelSplit",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Z.ai Code Scaffold",
-    description: "AI-powered development with modern React stack",
+    title: "TravelSplit - 旅行費用分攤追蹤器",
+    description: "記錄旅行開銷，輕鬆結算分攤",
   },
 };
 
@@ -41,7 +41,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="zh-Hant" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
