@@ -1,6 +1,6 @@
 // TravelSplit - Zustand Store (API Version with localStorage)
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 import type { Trip, Member, Expense, AppSettings, SettlementResult, SettlementTransaction } from "@/types";
 import { calculateAllBalances, calculateSettlementTransactions, calculateTotalExpenses } from "@/lib/settlement";
 import { MEMBER_COLORS } from "@/types";
@@ -29,9 +29,11 @@ interface TravelState {
   
   // 載入狀態
   isLoading: boolean;
+  _hasHydrated: boolean;
   
   // 操作
   initialize: () => Promise<void>;
+  setHasHydrated: (state: boolean) => void;
   
   // Trip 操作
   createTrip: (trip: Omit<Trip, "id" | "pin" | "members" | "expenses" | "createdAt" | "updatedAt">) => Promise<string>;
@@ -80,6 +82,12 @@ export const useTravelStore = create<TravelState>()(
       transactions: [],
       totalExpenses: 0,
       isLoading: false,
+      _hasHydrated: false,
+      
+      // 設置 hydration 狀態
+      setHasHydrated: (state: boolean) => {
+        set({ _hasHydrated: state });
+      },
       
       // 重新計算結算數據
       _recalculateSettlement: () => {
@@ -578,11 +586,15 @@ export const useTravelStore = create<TravelState>()(
     }),
     {
       name: "travelsplit-storage",
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         joinedTripIds: state.joinedTripIds,
         currentTripId: state.currentTripId,
         settings: state.settings,
       }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     }
   )
 );

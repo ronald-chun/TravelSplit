@@ -1,7 +1,7 @@
 "use client";
 // TravelSplit Home Page
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import { useTravelStore } from "@/store/travel";
 import { Dashboard } from "@/components/travel/Dashboard";
 import { ExpensesList } from "@/components/travel/ExpensesList";
@@ -95,12 +95,14 @@ function MainPage({
   setActiveTab, 
   onJoinTrip,
   onCreateTrip,
+  showAddExpense,
   setShowAddExpense 
 }: { 
   activeTab: string;
   setActiveTab: (tab: string) => void;
   onJoinTrip: () => void;
   onCreateTrip: () => void;
+  showAddExpense: boolean;
   setShowAddExpense: (show: boolean) => void;
 }) {
   const { currentTrip } = useTravelStore();
@@ -175,7 +177,7 @@ function MainPage({
             <Dashboard />
           </TabsContent>
           <TabsContent value="expenses">
-            <ExpensesList externalShowAdd={false} onExternalShowAddChange={setShowAddExpense} />
+            <ExpensesList externalShowAdd={showAddExpense} onExternalShowAddChange={setShowAddExpense} />
           </TabsContent>
           <TabsContent value="settlement">
             <Settlement />
@@ -204,31 +206,21 @@ function MainPage({
   );
 }
 
-// 用於檢測客戶端的 hook
-function useIsClient() {
-  return useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false
-  );
-}
-
 export default function Home() {
-  const isClient = useIsClient();
-  const { initialize, isLoading, joinedTripIds } = useTravelStore();
+  const { initialize, isLoading, joinedTripIds, _hasHydrated } = useTravelStore();
   const [showCreateTrip, setShowCreateTrip] = useState(false);
   const [showJoinTrip, setShowJoinTrip] = useState(false);
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
 
   useEffect(() => {
-    if (isClient) {
+    if (_hasHydrated) {
       initialize();
     }
-  }, [initialize, isClient]);
+  }, [initialize, _hasHydrated]);
 
-  // 載入中狀態
-  if (!isClient || isLoading) {
+  // 等待 hydration 完成或載入中
+  if (!_hasHydrated || isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-sky-50 to-white flex flex-col items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-sky-500" />
@@ -251,6 +243,7 @@ export default function Home() {
           setActiveTab={setActiveTab}
           onJoinTrip={handleJoinTrip}
           onCreateTrip={handleCreateTrip}
+          showAddExpense={showAddExpense}
           setShowAddExpense={setShowAddExpense}
         />
       )}
