@@ -27,26 +27,57 @@ async function generateUniquePin(): Promise<string> {
   throw new Error("Failed to generate unique PIN");
 }
 
-// Supabase PostgreSQL API
-export async function GET() {
+// 獲取旅程列表（支持 ids 查詢參數）
+export async function GET(request: Request) {
   try {
-    const trips = await db.trip.findMany({
-      include: {
-        members: true,
-        expenses: {
-          include: {
-            participants: {
-              include: {
-                member: true,
+    const { searchParams } = new URL(request.url);
+    const idsParam = searchParams.get("ids");
+    
+    let trips;
+    
+    if (idsParam) {
+      // 只返回指定的旅程
+      const ids = idsParam.split(",").filter(Boolean);
+      trips = await db.trip.findMany({
+        where: {
+          id: { in: ids },
+        },
+        include: {
+          members: true,
+          expenses: {
+            include: {
+              participants: {
+                include: {
+                  member: true,
+                },
               },
             },
           },
         },
-      },
-      orderBy: {
-        updatedAt: "desc",
-      },
-    });
+        orderBy: {
+          updatedAt: "desc",
+        },
+      });
+    } else {
+      // 返回所有旅程（用於向後兼容，但實際上不應該使用）
+      trips = await db.trip.findMany({
+        include: {
+          members: true,
+          expenses: {
+            include: {
+              participants: {
+                include: {
+                  member: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          updatedAt: "desc",
+        },
+      });
+    }
 
     // 轉換為前端格式
     const formattedTrips = trips.map((trip) => ({
@@ -83,7 +114,6 @@ export async function GET() {
       })),
       createdAt: trip.createdAt.toISOString(),
       updatedAt: trip.updatedAt.toISOString(),
-      isCurrent: trip.currentTrip,
     }));
 
     return NextResponse.json({ trips: formattedTrips });
@@ -93,20 +123,14 @@ export async function GET() {
   }
 }
 
-// 創建新旅行
+// 創建新旅程
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, startDate, endDate, currency, memberId } = body;
+    const { name, startDate, endDate, currency } = body;
 
     // 生成唯一的 PIN 碼
     const pin = await generateUniquePin();
-
-    // 將其他旅行設為非當前
-    await db.trip.updateMany({
-      where: { currentTrip: true },
-      data: { currentTrip: false },
-    });
 
     const trip = await db.trip.create({
       data: {
@@ -115,21 +139,8 @@ export async function POST(request: Request) {
         startDate,
         endDate,
         currency: currency || "HKD",
-        currentTrip: true,
       },
     });
-
-    // 如果有成員 ID，創建成員
-    if (memberId) {
-      await db.member.create({
-        data: {
-          id: memberId,
-          name: "我",
-          color: "#FF6B6B",
-          tripId: trip.id,
-        },
-      });
-    }
 
     return NextResponse.json({
       trip: {
@@ -139,11 +150,10 @@ export async function POST(request: Request) {
         startDate: trip.startDate,
         endDate: trip.endDate,
         currency: trip.currency,
-        members: memberId ? [{ id: memberId, name: "我", color: "#FF6B6B" }] : [],
+        members: [],
         expenses: [],
         createdAt: trip.createdAt.toISOString(),
         updatedAt: trip.updatedAt.toISOString(),
-        isCurrent: true,
       },
     });
   } catch (error) {

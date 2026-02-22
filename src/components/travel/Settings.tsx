@@ -21,6 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -46,6 +47,8 @@ import {
   Copy,
   Check,
   KeyRound,
+  LogOut,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ExchangeRateSettings } from "./ExchangeRateSettings";
@@ -59,7 +62,8 @@ export function Settings({ onCreateTrip }: SettingsProps) {
     currentTrip,
     trips,
     updateTrip,
-    deleteTrip,
+    leaveTrip,
+    confirmDeleteTrip,
     setCurrentTrip,
     addMember,
     updateMember,
@@ -72,7 +76,10 @@ export function Settings({ onCreateTrip }: SettingsProps) {
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [deleteMemberId, setDeleteMemberId] = useState<string | null>(null);
   const [showEditTrip, setShowEditTrip] = useState(false);
-  const [deleteTripId, setDeleteTripId] = useState<string | null>(null);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePin, setDeletePin] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -124,37 +131,65 @@ export function Settings({ onCreateTrip }: SettingsProps) {
   };
 
   // 複製 PIN 碼
-  const handleCopyPin = async (e?: React.MouseEvent) => {
-    e?.preventDefault();
-    e?.stopPropagation();
-    
-    try {
-      await navigator.clipboard.writeText(currentTrip.pin);
-      setCopied(true);
-      toast.success("PIN 碼已複製");
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error("複製失敗");
-    }
+  const handleCopyPin = () => {
+    navigator.clipboard.writeText(currentTrip.pin)
+      .then(() => {
+        setCopied(true);
+        toast.success("PIN 碼已複製");
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {
+        toast.error("複製失敗");
+      });
   };
 
   // 分享 PIN 碼
-  const handleSharePin = async (e?: React.MouseEvent) => {
-    e?.preventDefault();
-    e?.stopPropagation();
-    
+  const handleSharePin = () => {
     const shareText = `來加入我的旅行「${currentTrip.name}」！\n\nPIN 碼: ${currentTrip.pin}\n\n在 TravelSplit 輸入此 PIN 碼即可加入。`;
     
+    navigator.clipboard.writeText(shareText)
+      .then(() => {
+        toast.success("已複製分享內容");
+      })
+      .catch(() => {
+        navigator.clipboard.writeText(currentTrip.pin)
+          .then(() => {
+            toast.success("PIN 碼已複製");
+          })
+          .catch(() => {
+            toast.error("複製失敗");
+          });
+      });
+  };
+
+  // 離開旅程
+  const handleLeaveTrip = () => {
+    leaveTrip(currentTrip.id);
+    setShowLeaveConfirm(false);
+    toast.success("已離開旅程");
+  };
+
+  // 確認刪除旅程（需要 PIN）
+  const handleConfirmDelete = async () => {
+    if (deletePin.length !== 6) {
+      toast.error("請輸入 6 位 PIN 碼");
+      return;
+    }
+
+    setIsDeleting(true);
     try {
-      await navigator.clipboard.writeText(shareText);
-      toast.success("已複製分享內容");
-    } catch {
-      try {
-        await navigator.clipboard.writeText(currentTrip.pin);
-        toast.success("PIN 碼已複製");
-      } catch {
-        toast.error("複製失敗");
+      await confirmDeleteTrip(currentTrip.id, deletePin);
+      setShowDeleteModal(false);
+      setDeletePin("");
+      toast.success("旅程已刪除");
+    } catch (error) {
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error("刪除失敗");
       }
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -256,7 +291,6 @@ export function Settings({ onCreateTrip }: SettingsProps) {
                   size="icon"
                   onClick={handleCopyPin}
                   className="h-8 w-8"
-                  type="button"
                 >
                   {copied ? (
                     <Check className="w-4 h-4 text-green-500" />
@@ -269,7 +303,6 @@ export function Settings({ onCreateTrip }: SettingsProps) {
                 size="sm"
                 onClick={handleSharePin}
                 className="bg-sky-500 hover:bg-sky-600"
-                type="button"
               >
                 <Share2 className="w-4 h-4 mr-1" />
                 分享
@@ -344,12 +377,12 @@ export function Settings({ onCreateTrip }: SettingsProps) {
         </Card>
       )}
 
-      {/* 操作 */}
+      {/* 旅程管理 */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-lg flex items-center gap-2">
             <SettingsIcon className="w-5 h-5" />
-            數據管理
+            旅程管理
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -381,11 +414,20 @@ export function Settings({ onCreateTrip }: SettingsProps) {
 
             <Button
               variant="outline"
+              className="w-full text-orange-500 hover:text-orange-600 hover:bg-orange-50"
+              onClick={() => setShowLeaveConfirm(true)}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              離開此旅程
+            </Button>
+
+            <Button
+              variant="outline"
               className="w-full text-red-500 hover:text-red-600 hover:bg-red-50"
-              onClick={() => setDeleteTripId(currentTrip.id)}
+              onClick={() => setShowDeleteModal(true)}
             >
               <Trash2 className="w-4 h-4 mr-2" />
-              刪除此旅行
+              刪除此旅程
             </Button>
           </div>
         </CardContent>
@@ -471,36 +513,83 @@ export function Settings({ onCreateTrip }: SettingsProps) {
         }}
       />
 
-      {/* 刪除旅行確認 */}
-      <AlertDialog open={!!deleteTripId} onOpenChange={(open) => !open && setDeleteTripId(null)}>
+      {/* 離開旅程確認 */}
+      <AlertDialog open={showLeaveConfirm} onOpenChange={setShowLeaveConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>確認刪除旅行</AlertDialogTitle>
+            <AlertDialogTitle>離開旅程</AlertDialogTitle>
             <AlertDialogDescription>
-              確定要刪除「{currentTrip.name}」嗎？所有費用記錄將永久刪除，此操作無法復原。
+              確定要離開「{currentTrip.name}」嗎？之後可以使用 PIN 碼重新加入。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-red-500 hover:bg-red-600"
-              onClick={async () => {
-                if (deleteTripId) {
-                  try {
-                    await deleteTrip(deleteTripId);
-                    setDeleteTripId(null);
-                    toast.success("旅行已刪除");
-                  } catch (error) {
-                    toast.error("刪除失敗");
-                  }
-                }
-              }}
+              onClick={handleLeaveTrip}
             >
-              刪除
+              離開
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* 刪除旅程 Modal（需要反轉 PIN 確認） */}
+      <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>刪除旅程</DialogTitle>
+            <DialogDescription>
+              此操作無法復原。請輸入反轉 PIN 碼確認刪除「{currentTrip.name}」
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4 space-y-3">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm">
+              <p className="text-amber-800">
+                💡 刪除 PIN 碼為旅程 PIN 碼的反轉
+              </p>
+              <p className="text-amber-700 mt-1">
+                旅程 PIN 碼：<span className="font-mono font-bold">{currentTrip.pin}</span>
+              </p>
+            </div>
+            
+            <div>
+              <Label>輸入反轉 PIN 碼</Label>
+              <Input
+                placeholder="輸入 6 位反轉 PIN 碼"
+                value={deletePin}
+                onChange={(e) => {
+                  const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+                  if (value.length <= 6) setDeletePin(value);
+                }}
+                className="text-2xl text-center font-mono tracking-widest mt-2"
+                maxLength={6}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowDeleteModal(false);
+                setDeletePin("");
+              }}
+              disabled={isDeleting}
+            >
+              取消
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={deletePin.length !== 6 || isDeleting}
+            >
+              {isDeleting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              確認刪除
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

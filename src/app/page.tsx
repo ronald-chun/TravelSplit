@@ -1,7 +1,7 @@
 "use client";
 // TravelSplit Home Page
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useTravelStore } from "@/store/travel";
 import { Dashboard } from "@/components/travel/Dashboard";
 import { ExpensesList } from "@/components/travel/ExpensesList";
@@ -204,19 +204,31 @@ function MainPage({
   );
 }
 
+// 用於檢測客戶端的 hook
+function useIsClient() {
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
+}
+
 export default function Home() {
-  const { initialize, trips, isLoading } = useTravelStore();
+  const isClient = useIsClient();
+  const { initialize, isLoading, joinedTripIds } = useTravelStore();
   const [showCreateTrip, setShowCreateTrip] = useState(false);
   const [showJoinTrip, setShowJoinTrip] = useState(false);
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
 
   useEffect(() => {
-    initialize();
-  }, [initialize]);
+    if (isClient) {
+      initialize();
+    }
+  }, [initialize, isClient]);
 
   // 載入中狀態
-  if (isLoading && trips.length === 0) {
+  if (!isClient || isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-sky-50 to-white flex flex-col items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-sky-500" />
@@ -230,8 +242,8 @@ export default function Home() {
 
   return (
     <>
-      {/* 根據狀態渲染不同頁面 */}
-      {trips.length === 0 ? (
+      {/* 根據是否有已加入的旅程決定顯示哪個頁面 */}
+      {joinedTripIds.length === 0 ? (
         <WelcomePage onCreateTrip={handleCreateTrip} onJoinTrip={handleJoinTrip} />
       ) : (
         <MainPage 
