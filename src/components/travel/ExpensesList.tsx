@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTravelStore } from "@/store/travel";
 import { formatCurrency, formatDate } from "@/lib/storage";
-import { EXPENSE_CATEGORIES, COMMON_CURRENCIES, type Expense, type ExpenseCategory } from "@/types";
+import { EXPENSE_CATEGORIES, COMMON_CURRENCIES, DEFAULT_RATES, type Expense, type ExpenseCategory } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,6 +66,26 @@ export function ExpensesList({ externalShowAdd, onExternalShowAddChange }: Expen
     }
   };
 
+  // 即時計算換算金額
+  const getConvertedAmount = (amount: number, fromCurrency: string): number => {
+    if (!currentTrip) return amount;
+    const baseCurrency = currentTrip.currency;
+    if (fromCurrency === baseCurrency) return amount;
+
+    const customRates = currentTrip.customRates;
+    
+    // 如果有自定義匯率，直接使用
+    if (customRates && customRates[fromCurrency] !== undefined) {
+      return amount * customRates[fromCurrency];
+    }
+
+    // 使用預設匯率計算
+    const baseRateInUSD = DEFAULT_RATES[baseCurrency] || 1;
+    const targetRateInUSD = DEFAULT_RATES[fromCurrency] || 1;
+    const rate = baseRateInUSD / targetRateInUSD;
+    return amount * rate;
+  };
+
   if (!currentTrip) return null;
 
   const filteredExpenses = currentTrip.expenses
@@ -123,6 +143,9 @@ export function ExpensesList({ externalShowAdd, onExternalShowAddChange }: Expen
               .filter(Boolean)
               .join("、");
 
+            // 即時計算換算金額
+            const convertedAmount = getConvertedAmount(expense.amount, expense.currency);
+
             return (
               <Card key={expense.id} className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow" onClick={() => setViewingExpense(expense)}>
                 <CardContent className="p-4">
@@ -148,7 +171,7 @@ export function ExpensesList({ externalShowAdd, onExternalShowAddChange }: Expen
                     <div className="flex items-center gap-2">
                       <div className="text-right mr-2">
                         <div className="font-bold text-gray-900">
-                          {formatCurrency(expense.amountInBaseCurrency, currentTrip.currency)}
+                          {formatCurrency(convertedAmount, currentTrip.currency)}
                         </div>
                         {expense.currency !== currentTrip.currency && (
                           <div className="text-xs text-gray-500">
@@ -198,7 +221,6 @@ export function ExpensesList({ externalShowAdd, onExternalShowAddChange }: Expen
       <ExpenseModal
         open={showAddModal}
         onOpenChange={handleShowAddModalChange}
-        trip={currentTrip}
         onSave={async (data) => {
           try {
             await addExpense(currentTrip.id, data);
@@ -215,7 +237,6 @@ export function ExpensesList({ externalShowAdd, onExternalShowAddChange }: Expen
         <ExpenseModal
           open={!!editingExpense}
           onOpenChange={(open) => !open && setEditingExpense(null)}
-          trip={currentTrip}
           expense={editingExpense}
           onSave={async (data) => {
             try {
@@ -274,15 +295,17 @@ export function ExpensesList({ externalShowAdd, onExternalShowAddChange }: Expen
 interface ExpenseModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  trip: typeof useTravelStore.getState extends () => infer R ? R extends { currentTrip: infer T } ? T : never : never;
   expense?: Expense;
   onSave: (data: Omit<Expense, "id" | "tripId" | "createdAt" | "updatedAt" | "amountInBaseCurrency">) => void;
 }
 
-function ExpenseModal({ open, onOpenChange, trip, expense, onSave }: ExpenseModalProps) {
+function ExpenseModal({ open, onOpenChange, expense, onSave }: ExpenseModalProps) {
+  // 直接從 store 獲取最新的 currentTrip
+  const currentTrip = useTravelStore((state) => state.currentTrip);
+  
   const [description, setDescription] = useState(expense?.description || "");
   const [amount, setAmount] = useState(expense?.amount.toString() || "");
-  const [currency, setCurrency] = useState(expense?.currency || trip?.currency || "HKD");
+  const [currency, setCurrency] = useState(expense?.currency || currentTrip?.currency || "HKD");
   const [category, setCategory] = useState<ExpenseCategory>(expense?.category || "food");
   const [payerId, setPayerId] = useState(expense?.payerId || "");
   const [date, setDate] = useState(expense?.date.split("T")[0] || TODAY);
@@ -291,6 +314,26 @@ function ExpenseModal({ open, onOpenChange, trip, expense, onSave }: ExpenseModa
   const [customSplits, setCustomSplits] = useState<Record<string, number>>(expense?.customSplits || {});
 
   const isEditing = !!expense;
+  const baseCurrency = currentTrip?.currency || "HKD";
+  const customRates = currentTrip?.customRates;
+
+  // 計算即時匯率轉換（簡單計算，不需要 memo）
+  const getConvertedAmount = (amt: number, fromCurr: string) => {
+    if (amt === 0 || fromCurr === baseCurrency) return amt;
+
+    // 如果有自定義匯率，直接使用
+    if (customRates && customRates[fromCurr] !== undefined) {
+      return amt * customRates[fromCurr];
+    }
+
+    // 使用預設匯率計算
+    const baseRateInUSD = DEFAULT_RATES[baseCurrency] || 1;
+    const targetRateInUSD = DEFAULT_RATES[fromCurr] || 1;
+    const rate = baseRateInUSD / targetRateInUSD;
+    return amt * rate;
+  };
+
+  const convertedAmount = getConvertedAmount(parseFloat(amount) || 0, currency);
 
   // 計算自定義分攤總額（只計算當前參與者）
   const customTotal = participants.reduce((sum, id) => sum + (customSplits[id] || 0), 0);
@@ -302,7 +345,7 @@ function ExpenseModal({ open, onOpenChange, trip, expense, onSave }: ExpenseModa
   const resetForm = () => {
     setDescription("");
     setAmount("");
-    setCurrency(trip?.currency || "HKD");
+    setCurrency(currentTrip?.currency || "HKD");
     setCategory("food");
     setPayerId("");
     setDate(TODAY);
@@ -362,7 +405,7 @@ function ExpenseModal({ open, onOpenChange, trip, expense, onSave }: ExpenseModa
   };
 
   const selectAllParticipants = () => {
-    setParticipants(trip?.members.map(m => m.id) || []);
+    setParticipants(currentTrip?.members.map(m => m.id) || []);
   };
 
   // 平均分配
@@ -418,6 +461,16 @@ function ExpenseModal({ open, onOpenChange, trip, expense, onSave }: ExpenseModa
                   </SelectContent>
                 </Select>
               </div>
+              {/* 即時匯率轉換顯示 */}
+              {currency !== baseCurrency && parseFloat(amount) > 0 && (
+                <div className="flex items-center gap-1 text-sm text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+                  <span>=</span>
+                  <span className="font-semibold text-sky-600">
+                    {formatCurrency(convertedAmount, baseCurrency)}
+                  </span>
+                  <span className="text-xs">({baseCurrency})</span>
+                </div>
+              )}
             </div>
 
             {/* 描述 */}
@@ -457,7 +510,7 @@ function ExpenseModal({ open, onOpenChange, trip, expense, onSave }: ExpenseModa
                   <SelectValue placeholder="選擇付款人" />
                 </SelectTrigger>
                 <SelectContent>
-                  {trip?.members.map(member => (
+                  {currentTrip?.members.map(member => (
                     <SelectItem key={member.id} value={member.id}>
                       <div className="flex items-center gap-2">
                         <span>{member.avatar || member.name.charAt(0)}</span>
@@ -494,7 +547,7 @@ function ExpenseModal({ open, onOpenChange, trip, expense, onSave }: ExpenseModa
               </div>
               <ScrollArea className="h-32 border rounded-lg p-2">
                 <div className="space-y-2">
-                  {trip?.members.map(member => (
+                  {currentTrip?.members.map(member => (
                     <div key={member.id} className="flex items-center gap-2">
                       <Checkbox
                         id={member.id}
@@ -561,7 +614,7 @@ function ExpenseModal({ open, onOpenChange, trip, expense, onSave }: ExpenseModa
                     
                     <div className="space-y-2">
                       {participants.map(participantId => {
-                        const member = trip?.members.find(m => m.id === participantId);
+                        const member = currentTrip?.members.find(m => m.id === participantId);
                         if (!member) return null;
                         
                         return (

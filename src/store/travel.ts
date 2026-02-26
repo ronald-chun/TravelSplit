@@ -29,11 +29,9 @@ interface TravelState {
   
   // 載入狀態
   isLoading: boolean;
-  _hasHydrated: boolean;
   
   // 操作
   initialize: () => Promise<void>;
-  setHasHydrated: (state: boolean) => void;
   
   // Trip 操作
   createTrip: (trip: Omit<Trip, "id" | "pin" | "members" | "expenses" | "createdAt" | "updatedAt">) => Promise<string>;
@@ -82,12 +80,6 @@ export const useTravelStore = create<TravelState>()(
       transactions: [],
       totalExpenses: 0,
       isLoading: false,
-      _hasHydrated: false,
-      
-      // 設置 hydration 狀態
-      setHasHydrated: (state: boolean) => {
-        set({ _hasHydrated: state });
-      },
       
       // 重新計算結算數據
       _recalculateSettlement: () => {
@@ -592,9 +584,6 @@ export const useTravelStore = create<TravelState>()(
         currentTripId: state.currentTripId,
         settings: state.settings,
       }),
-      onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true);
-      },
     }
   )
 );

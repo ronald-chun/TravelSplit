@@ -1,8 +1,25 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { DEFAULT_RATES } from "@/types";
+import { DEFAULT_RATES, COMMON_CURRENCIES } from "@/types";
+
+// 計算預設匯率（相對於基礎貨幣）
+function getDefaultRatesForBase(baseCurrency: string): Record<string, number> {
+  const baseRateInUSD = DEFAULT_RATES[baseCurrency] || 1;
+  const rates: Record<string, number> = {};
+
+  COMMON_CURRENCIES.forEach(({ code }) => {
+    if (code !== baseCurrency && DEFAULT_RATES[code]) {
+      // customRates[JPY] = 0.052 表示 1 JPY = 0.052 基礎貨幣
+      // 計算方式：baseRateInUSD / targetRateInUSD
+      rates[code] = baseRateInUSD / DEFAULT_RATES[code];
+    }
+  });
+
+  return rates;
+}
 
 // 匯率轉換函數
+// customRates 格式：customRates[JPY] = 0.052 表示 1 JPY = 0.052 基礎貨幣
 function convertToBaseCurrency(
   amount: number,
   fromCurrency: string,
@@ -11,21 +28,17 @@ function convertToBaseCurrency(
 ): number {
   if (fromCurrency === toCurrency) return amount;
 
-  // 使用自定義匯率或預設匯率
-  const getRateInUSD = (currency: string): number => {
-    if (customRates && customRates[currency]) {
-      // customRates 是相對於基礎貨幣的匯率，需要轉換
-      return 1 / customRates[currency];
-    }
-    return DEFAULT_RATES[currency] || 1;
-  };
+  // 合併自定義匯率和預設匯率
+  const defaultRates = getDefaultRatesForBase(toCurrency);
+  const rates = { ...defaultRates, ...customRates };
 
-  const fromRateInUSD = getRateInUSD(fromCurrency);
-  const toRateInUSD = getRateInUSD(toCurrency);
+  // 如果有匯率，直接使用
+  if (rates[fromCurrency] !== undefined) {
+    return amount * rates[fromCurrency];
+  }
 
-  // 先轉換為 USD，再轉換為目標貨幣
-  const amountInUSD = amount / fromRateInUSD;
-  return amountInUSD * toRateInUSD;
+  console.warn(`Exchange rate not found for ${fromCurrency} -> ${toCurrency}`);
+  return amount;
 }
 
 // 添加費用

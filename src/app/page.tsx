@@ -1,7 +1,7 @@
 "use client";
 // TravelSplit Home Page
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useTravelStore } from "@/store/travel";
 import { Dashboard } from "@/components/travel/Dashboard";
 import { ExpensesList } from "@/components/travel/ExpensesList";
@@ -22,6 +22,15 @@ import {
   KeyRound,
   Loader2
 } from "lucide-react";
+
+// 用於檢測客戶端的 hook
+function useIsClient() {
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
+}
 
 // Floating Action Button Component
 function FloatingActionButton({ onClick }: { onClick: () => void }) {
@@ -207,20 +216,22 @@ function MainPage({
 }
 
 export default function Home() {
-  const { initialize, isLoading, joinedTripIds, _hasHydrated } = useTravelStore();
+  const isClient = useIsClient();
+  const { initialize, isLoading, joinedTripIds } = useTravelStore();
   const [showCreateTrip, setShowCreateTrip] = useState(false);
   const [showJoinTrip, setShowJoinTrip] = useState(false);
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
 
+  // 初始化數據
   useEffect(() => {
-    if (_hasHydrated) {
+    if (isClient) {
       initialize();
     }
-  }, [initialize, _hasHydrated]);
+  }, [initialize, isClient]);
 
-  // 等待 hydration 完成或載入中
-  if (!_hasHydrated || isLoading) {
+  // 等待客戶端或載入中
+  if (!isClient || isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-sky-50 to-white flex flex-col items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-sky-500" />

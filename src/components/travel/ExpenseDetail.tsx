@@ -2,7 +2,7 @@
 
 import { useTravelStore } from "@/store/travel";
 import { formatCurrency, formatDate } from "@/lib/storage";
-import { EXPENSE_CATEGORIES, type Expense } from "@/types";
+import { EXPENSE_CATEGORIES, DEFAULT_RATES, type Expense } from "@/types";
 import {
   Dialog,
   DialogContent,
@@ -30,27 +30,66 @@ interface ExpenseDetailProps {
 export function ExpenseDetail({ expense, open, onOpenChange }: ExpenseDetailProps) {
   const { currentTrip } = useTravelStore();
 
+  // 即時計算換算金額
+  const getConvertedAmount = (amount: number, fromCurrency: string): number => {
+    if (!currentTrip) return amount;
+    const baseCurrency = currentTrip.currency;
+    if (fromCurrency === baseCurrency) return amount;
+
+    const customRates = currentTrip.customRates;
+    
+    // 如果有自定義匯率，直接使用
+    if (customRates && customRates[fromCurrency] !== undefined) {
+      return amount * customRates[fromCurrency];
+    }
+
+    // 使用預設匯率計算
+    const baseRateInUSD = DEFAULT_RATES[baseCurrency] || 1;
+    const targetRateInUSD = DEFAULT_RATES[fromCurrency] || 1;
+    const rate = baseRateInUSD / targetRateInUSD;
+    return amount * rate;
+  };
+
+  // 取得即時匯率
+  const getExchangeRate = (fromCurrency: string): number => {
+    if (!currentTrip || fromCurrency === currentTrip.currency) return 1;
+    
+    const customRates = currentTrip.customRates;
+    if (customRates && customRates[fromCurrency] !== undefined) {
+      return customRates[fromCurrency];
+    }
+
+    const baseRateInUSD = DEFAULT_RATES[currentTrip.currency] || 1;
+    const targetRateInUSD = DEFAULT_RATES[fromCurrency] || 1;
+    return baseRateInUSD / targetRateInUSD;
+  };
+
   if (!expense || !currentTrip) return null;
 
   const payer = currentTrip.members.find(m => m.id === expense.payerId);
   const category = EXPENSE_CATEGORIES.find(c => c.value === expense.category);
+  
+  // 即時計算換算金額
+  const convertedAmount = getConvertedAmount(expense.amount, expense.currency);
+  const exchangeRate = getExchangeRate(expense.currency);
   
   // 計算每人應付金額
   const perPersonAmount = expense.splitType === "equal" 
     ? expense.amount / expense.participants.length 
     : null;
 
-  // 基礎貨幣每人應付
+  // 基礎貨幣每人應付（即時計算）
   const perPersonBaseAmount = expense.splitType === "equal"
-    ? expense.amountInBaseCurrency / expense.participants.length
+    ? convertedAmount / expense.participants.length
     : null;
 
   // 參與者列表（包含計算）
   const participantDetails = expense.participants.map(participantId => {
     const member = currentTrip.members.find(m => m.id === participantId);
     const customAmount = expense.customSplits?.[participantId];
+    // 即時計算自定義金額的換算
     const baseCustomAmount = customAmount 
-      ? customAmount * (expense.amountInBaseCurrency / expense.amount)
+      ? getConvertedAmount(customAmount, expense.currency)
       : null;
     
     return {
@@ -83,7 +122,7 @@ export function ExpenseDetail({ expense, open, onOpenChange }: ExpenseDetailProp
               </div>
               {expense.currency !== currentTrip.currency && (
                 <div className="text-sm text-sky-200 mt-1">
-                  約 {formatCurrency(expense.amountInBaseCurrency, currentTrip.currency)}
+                  約 {formatCurrency(convertedAmount, currentTrip.currency)}
                 </div>
               )}
             </div>
@@ -140,7 +179,7 @@ export function ExpenseDetail({ expense, open, onOpenChange }: ExpenseDetailProp
                 <div className="text-right">
                   <div className="text-xs text-gray-500">實付</div>
                   <div className="font-bold text-green-600">
-                    -{formatCurrency(expense.amountInBaseCurrency, currentTrip.currency)}
+                    -{formatCurrency(convertedAmount, currentTrip.currency)}
                   </div>
                 </div>
               </div>
@@ -179,7 +218,7 @@ export function ExpenseDetail({ expense, open, onOpenChange }: ExpenseDetailProp
                   
                   // 計算淨額：如果是付款人，淨額 = 應付 - 已付
                   const netAmount = isPayer 
-                    ? baseAmountOwed - expense.amountInBaseCurrency 
+                    ? baseAmountOwed - convertedAmount 
                     : baseAmountOwed;
 
                   return (
@@ -242,7 +281,7 @@ export function ExpenseDetail({ expense, open, onOpenChange }: ExpenseDetailProp
                   <div>
                     <span className="text-gray-500">匯率參考：</span>
                     <span className="font-medium">
-                      1 {expense.currency} ≈ {(expense.amountInBaseCurrency / expense.amount).toFixed(4)} {currentTrip.currency}
+                      1 {expense.currency} ≈ {exchangeRate.toFixed(4)} {currentTrip.currency}
                     </span>
                   </div>
                 </div>
@@ -256,7 +295,7 @@ export function ExpenseDetail({ expense, open, onOpenChange }: ExpenseDetailProp
                 {expense.splitType === "equal" ? (
                   <>
                     <p>• 總金額 {formatCurrency(expense.amount, expense.currency)} ÷ {expense.participants.length} 人 = 每人 {formatCurrency(perPersonAmount!, expense.currency)}</p>
-                    <p>• 付款人 {payer?.name} 已墊付全額，結算後可收回 {formatCurrency(expense.amountInBaseCurrency - (perPersonBaseAmount || 0), currentTrip.currency)}</p>
+                    <p>• 付款人 {payer?.name} 已墊付全額，結算後可收回 {formatCurrency(convertedAmount - (perPersonBaseAmount || 0), currentTrip.currency)}</p>
                   </>
                 ) : (
                   <p>• 使用自定義金額分配，各人按設定金額支付</p>
